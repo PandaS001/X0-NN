@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Крестики-нолики неон</title>
+<style>
+  body {
+    margin: 0;
+    background-color: #000;
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* Центр по вертикали */
+    height: 100vh; /* Высота всей видимой части окна браузера */
+    color: #00f;
+    position: relative;
+  }
+  #backButton {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    padding: 8px 12px;
+    background-color: transparent;
+    border: 2px solid #00f;
+    border-radius: 6px;
+    color: #0ff;
+    font-size: 0.9em;
+    cursor: pointer;
+    font-weight: normal;
+    box-shadow: none;
+    transition: all 0.2s ease;
+    z-index: 5;
+  }
+  #backButton:hover {
+    background-color: rgba(0, 0, 0, 0.3);
+  }
+  #centerContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #status {
+    margin-bottom: 10px;
+    font-size: 1.4em;
+    color: #0ff;
+    text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+    letter-spacing: 1px;
+  }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 8px;
+    width: 90vmin;
+    max-width: 95vw;
+    aspect-ratio: 1/1;
+    padding: 10px;
+    background: linear-gradient(135deg, #000, #111);
+    border-radius: 15px;
+    box-shadow: 0 0 20px #00f, inset 0 0 10px #00f;
+  }
+  .cell {
+    background-color: #000;
+    border: 3px solid #00f;
+    border-radius: 12px;
+    font-size: 8vmin;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 8px #0ff inset, 0 0 15px #0ff;
+  }
+  .cell:hover {
+    box-shadow: 0 0 15px #0ff, inset 0 0 20px #0ff;
+    transform: scale(1.05);
+  }
+  #musicControl {
+    margin-top: 10px;
+    padding: 8px 16px;
+    background-color: #000;
+    border: 2px solid #00f;
+    border-radius: 8px;
+    color: #0ff;
+    font-size: 1em;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 0 15px #00f, inset 0 0 10px #00f;
+    transition: all 0.3s ease;
+  }
+  #musicControl:hover {
+    background-color: #00f;
+    color: #fff;
+    box-shadow: 0 0 20px #0ff, inset 0 0 15px #0ff;
+  }
+  #restart {
+    margin-top: 20px;
+    padding: 12px 24px;
+    background-color: #000;
+    border: 2px solid #00f;
+    border-radius: 8px;
+    color: #0ff;
+    font-size: 1.2em;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 0 15px #00f, inset 0 0 10px #00f;
+    transition: all 0.3s ease;
+  }
+  #restart:hover {
+    background-color: #00f;
+    color: #fff;
+    box-shadow: 0 0 20px #0ff, inset 0 0 15px #0ff;
+  }
+</style>
+</head>
+<body>
+<button id="backButton">Вернуться</button>
+<div id="centerContainer">
+  <div id="status">Ходит: </div>
+  <div id="board"></div>
+  <button id="restart">Начать заново</button>
+  <button id="musicControl">Включить музыку</button>
+</div>
+
+<!-- Фоновая музыка из папки assets/audio -->
+<audio id="backgroundMusic" loop>
+  <source src="assets/audio/your_song.mp3" type="audio/mpeg" />
+</audio>
+
+<script>
+const boardElement = document.getElementById('board');
+const statusElement = document.getElementById('status');
+const restartButton = document.getElementById('restart');
+const backButton = document.getElementById('backButton');
+const musicButton = document.getElementById('musicControl');
+const music = document.getElementById('backgroundMusic');
+
+const returnPageURL = '/index.html';
+
+let musicOn = false; // изначально музыка выключена
+
+// Функция для включения музыки
+function turnOnMusic() {
+  music.play().then(() => {
+    musicOn = true;
+    musicButton.textContent = 'Выключить музыку';
+  }).catch(() => {
+    alert('Невозможно воспроизвести музыку. Браузер может блокировать автоматическое воспроизведение.');
+  });
+}
+
+musicButton.onclick = () => {
+  if(!musicOn){
+    turnOnMusic();
+  } else {
+    music.pause();
+    musicOn = false;
+    musicButton.textContent = 'Включить музыку';
+  }
+};
+
+backButton.onclick = () => {
+  window.location.href = returnPageURL;
+};
+
+let board = Array(9).fill(null);
+let currentPlayer = 'X';
+let gameActive = true;
+
+const winningCombinations = [
+  [0,1,2], [3,4,5], [6,7,8],
+  [0,3,6], [1,4,7], [2,5,8],
+  [0,4,8], [2,4,6]
+];
+
+function init() {
+  boardElement.innerHTML = '';
+  for(let i=0; i<9; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.index = i;
+    cell.addEventListener('click', onCellClick);
+    boardElement.appendChild(cell);
+  }
+  currentPlayer = 'X';
+  statusElement.textContent = 'Ходит: ' + currentPlayer;
+  board = Array(9).fill(null);
+  gameActive = true;
+}
+
+function onCellClick(e) {
+  const index = parseInt(e.target.dataset.index);
+  if(!gameActive || board[index]) return;
+  makeMove(index, currentPlayer);
+  if(checkWin(currentPlayer)){
+    statusElement.textContent = 'Игрок ' + currentPlayer + ' выиграл!';
+    gameActive = false;
+    return;
+  } else if(isDraw()){
+    statusElement.textContent = 'Ничья!';
+    gameActive = false;
+    return;
+  }
+  currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+  statusElement.textContent = 'Ходит: ' + currentPlayer;
+}
+
+function makeMove(index, player) {
+  board[index] = player;
+  const cell = document.querySelector(`.cell[data-index='${index}']`);
+  cell.textContent = player;
+  cell.style.color = player === 'X' ? '#00f' : '#0ff';
+}
+
+function checkWin(player){
+  return winningCombinations.some(combo => {
+    return combo.every(index => board[index] === player);
+  });
+}
+
+function isDraw() {
+  return board.every(cell => cell);
+}
+
+restartButton.onclick = init;
+
+// Можно запускать музыку при входе по желанию
+// Например, раскомментировать следующую строку, чтобы включить музыку при загрузке
+// turnOnMusic();
+
+init();
+</script>
+</body>
+</html>
